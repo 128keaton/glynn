@@ -6,6 +6,7 @@ gemspec
 #
 gem "rdiscount"
 gem "rake"
+gem "json"
 
 #
 # Required only for tests

@@ -1,5 +1,6 @@
 require 'net/ftp'
 require 'double_bag_ftps'
+require 'json'
 
 module Glynn
   class Ftp
@@ -44,11 +45,14 @@ module Glynn
         # We don't do anything. The directory already exists.
         # TODO : this is also risen if we don't have write access. Then, we need to raise.
       end
+      out_file = File.new("md5.txt", "w")
+
       Dir.foreach(local) do |file_name|
         # If the file/directory is hidden (first character is a dot), we ignore it
         next if file_name =~ /^(\.|\.\.)$/
 
-        puts " -> " + file_name
+
+
         if ::File.stat(local + "/" + file_name).directory?
           # It is a directory, we recursively send it
           begin
@@ -57,11 +61,22 @@ module Glynn
             # We don't do anything. The directory already exists.
             # TODO : this is also risen if we don't have write access. Then, we need to raise.
           end
+          puts " -> " + file_name
           send_dir(ftp, local + "/" + file_name, distant + "/" + file_name)
         else
+
+          digest = Digest::MD5.hexdigest(File.read(local + "/" + file_name))
+          md5 = {
+            file_name => digest
+            }
+          out_file.write(md5.to_json)
+
+           puts " -> " + file_name + " " + Digest::MD5.hexdigest(File.read(local + "/" + file_name))
            ftp.putbinaryfile(local + "/" + file_name, distant + "/" + file_name)
         end
       end
+
+      out_file.close
     end
 
     private

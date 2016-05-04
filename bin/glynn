@@ -5,6 +5,7 @@ require 'netrc'
 require 'glynn'
 require 'highline'
 require 'io/console'
+require 'digest'
 $:.unshift File.join(File.dirname(__FILE__), *%w[.. lib])
 
 netrc = Netrc.read
@@ -69,6 +70,8 @@ if options['ftp_password'].nil?
 else
   password = options['ftp_password']
 end
+
+
 
 ftp = Glynn::Ftp.new(options['ftp_host'], ftp_port, {
   :username => username,
