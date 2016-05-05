@@ -13,6 +13,8 @@ module Glynn
   class Ftp
     attr_reader :host, :port, :username, :password, :passive, :secure
 
+
+
     def initialize(host, port = 21, options = Hash.new)
       options = {:username => nil, :password => nil}.merge(options)
       @host, @port = host, port
@@ -45,6 +47,10 @@ module Glynn
       end
     end
 
+    out_file = File.open("md5.json", "a")
+
+    @md5 = { }
+
     def send_dir(ftp, local, distant)
       begin
         ftp.mkdir(distant)
@@ -52,16 +58,26 @@ module Glynn
         # We don't do anything. The directory already exists.
         # TODO : this is also risen if we don't have write access. Then, we need to raise.
       end
-      out_file = File.new("md5.json", "w")
-      in_file = File.read("md5.json")
-      md5 = { }
+
+      md5Keys = nil
+      if File.file?("md5.json")
+        puts "MD5s exists"
+        mddigests = File.open("md5.json", "r")
+        digests = mddigests.read
+        puts "MD5s" + digests
+        items = JSON.parse_nil(digests)   #<--- This should work now!
+        md5Keys = items
+        if items != nil
+          if items.key?("feed.xml")
+            puts "Feed me: "
+            puts items["feed.xml"]
+          end
+        end
+      end
+
       Dir.foreach(local) do |file_name|
         # If the file/directory is hidden (first character is a dot), we ignore it
         next if file_name =~ /^(\.|\.\.)$/
-        hashBrowns = JSON.parse_nil(in_file)
-        if hashBrowns != nil
-          puts hashBrowns[file_name]
-        end
 
 
         if ::File.stat(local + "/" + file_name).directory?
@@ -77,16 +93,35 @@ module Glynn
         else
 
 
-           puts "(File) -> " + file_name + " " + Digest::MD5.hexdigest(File.read(local + "/" + file_name))
-           md5[file_name] = Digest::MD5.hexdigest(File.read(local + "/" + file_name))
-           ftp.putbinaryfile(local + "/" + file_name, distant + "/" + file_name)
+
+           if md5Keys != nil
+           if md5Keys.key?(file_name)
+             if md5Keys[file_name] = Digest::MD5.hexdigest(File.read(local + "/" + file_name))
+               puts  file_name + " unchanged"
+             else
+                puts "(File) -> " + file_name + " " + Digest::MD5.hexdigest(File.read(local + "/" + file_name))
+                @md5[file_name] = Digest::MD5.hexdigest(File.read(local + "/" + file_name))
+                ftp.putbinaryfile(local + "/" + file_name, distant + "/" + file_name)
+            end
+          else
+            puts "(File) -> " + file_name + " " + Digest::MD5.hexdigest(File.read(local + "/" + file_name))
+            @md5[file_name] = Digest::MD5.hexdigest(File.read(local + "/" + file_name))
+            ftp.putbinaryfile(local + "/" + file_name, distant + "/" + file_name)
+          end
+          else
+            puts "(File) -> " + file_name + " " + Digest::MD5.hexdigest(File.read(local + "/" + file_name))
+            @md5[file_name] = Digest::MD5.hexdigest(File.read(local + "/" + file_name))
+            ftp.putbinaryfile(local + "/" + file_name, distant + "/" + file_name)
+          end
+            # puts "(File) -> " + file_name + " " + Digest::MD5.hexdigest(File.read(local + "/" + file_name))
 
         end
       end
 
-      out_file.write(md5.to_json)
-      out_file.close
+
     end
+    out_file.write(JSON.pretty_generate(@md5))
+    out_file.close
 
     private
     def host_with_port
